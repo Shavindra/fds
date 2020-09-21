@@ -15,7 +15,7 @@ with open('../merged-cleansed.json') as f:
 print('Selecting sample data...', str(len(file_data)))
 
 import random
-data = random.sample(file_data, 40000)
+data = random.sample(file_data, 500)
 # data = file_data
 
 ##### Create twitter dataframe #####
@@ -29,7 +29,7 @@ tweets = pd.DataFrame({
 })
 
 # tweets.sort_values(by='lang', ascending=True, inplace=True)
-# tweets_text = tweets['text'].tolist()
+tweets_text = tweets['text'].tolist()
 
 print('Processing tweet texts...')
 
@@ -88,6 +88,7 @@ print('Term matrix...')
 def term_matrix(doc):
     return dictionary.doc2bow(doc)
 
+# Corpus
 doc_term_matrix = [term_matrix(doc) for doc in doc_clean]
 
 # Creating the object for LDA model using gensim library
@@ -129,6 +130,41 @@ for topic in topics:
     print ("Topic",i ,"->", topic)
     i+=1
 
+
+##### Get topic in each sentence  #####
+
+def format_topics_sentences(ldamodel=ldamodel, corpus=corpus, texts=data):
+    # Init output
+    sent_topics_df = pd.DataFrame()
+
+    # Get main topic in each document
+    for i, row in enumerate(ldamodel[corpus]):
+        row = sorted(row, key=lambda x: (x[1]), reverse=True)
+        # Get the Dominant topic, Perc Contribution and Keywords for each document
+        for j, (topic_num, prop_topic) in enumerate(row):
+            if j == 0:  # => dominant topic
+                wp = ldamodel.show_topic(topic_num)
+                topic_keywords = ", ".join([word for word, prop in wp])
+                sent_topics_df = sent_topics_df.append(pd.Series([int(topic_num), round(prop_topic,4), topic_keywords]), ignore_index=True)
+            else:
+                break
+    sent_topics_df.columns = ['Dominant_Topic', 'Perc_Contribution', 'Topic_Keywords']
+
+    # Add original text to the end of the output
+    contents = pd.Series(texts)
+    sent_topics_df = pd.concat([sent_topics_df, contents], axis=1)
+    return(sent_topics_df)
+
+
+df_topic_sents_keywords = format_topics_sentences(ldamodel=optimal_model, corpus=doc_term_matrix, texts=doc_clean)
+
+# Format
+df_dominant_topic = df_topic_sents_keywords.reset_index()
+df_dominant_topic.columns = ['Document_No', 'Dominant_Topic', 'Topic_Perc_Contrib', 'Keywords', 'Text']
+
+# Show
+df_dominant_topic.head(10)
+
 ##### Visualise topics #####
 print('Visualising topics...')
 # Visualise
@@ -151,5 +187,3 @@ pyLDAvis.save_html(vis, 'topics-lda.html')
 print('Save visualisation to json...')
 with open('pylda-vis' + t + '.json', 'w') as vis_json:
     vis_json.write(pyLDAvis.save_json(vis))
-
-
