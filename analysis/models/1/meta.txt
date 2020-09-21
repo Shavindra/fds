@@ -1,0 +1,7 @@
+ldamodel = Lda(doc_term_matrix, num_topics=2, id2word = dictionary, passes=100)
+
+print('Processing topics...')
+# Print 2 topics and describe then with 4 words.
+topics = ldamodel.print_topics(num_topics=2, num_words=3)
+
+30000
